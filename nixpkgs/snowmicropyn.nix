@@ -5,10 +5,13 @@
 , wheel
 , numpy
 , pandas
+, pyqt5
+, scikit-learn
 , python312
+, libsForQt5
 }:
 
-buildPythonPackage rec {
+buildPythonPackage rec {  
   pname = "snowmicropyn";
   version = "1.2.1";
   format = "setuptools";
@@ -21,6 +24,8 @@ buildPythonPackage rec {
   };
 
   nativeBuildInputs = [
+    libsForQt5.qt5.qttools
+    libsForQt5.qt5.wrapQtAppsHook
   ];
 
   buildInputs = [
@@ -28,6 +33,9 @@ buildPythonPackage rec {
 
   propagatedBuildInputs = [
     pandas
+    pyqt5
+    scikit-learn
+    libsForQt5.qt5.qtbase
   ];
 
   nativeCheckInputs = [
@@ -42,6 +50,22 @@ buildPythonPackage rec {
 
   checkPhase = ''
     runHook preCheck
+  '';
+
+  
+
+  # Wrapper script for launching the GUI with correct Qt env
+  postInstall = ''
+    mkdir -p $out/bin
+    cat > $out/bin/pyngui <<EOF
+    #!/usr/bin/env bash
+    exec python3 -m snowmicropyn.pyngui.app "$@"
+    EOF
+    chmod +x $out/bin/pyngui
+  '';
+
+  preFixup = ''
+    wrapQtApp "$out/bin/pyngui" --prefix PATH : /path/to/bin
   '';
 
   # Enable parallel building
