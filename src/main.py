@@ -1,6 +1,8 @@
 import snowmicropyn
 from snowmicropyn.parameterizations.calonne_richter2020 import CalonneRichter2020
-from snowmicropyn.parameterizations.proksch2015 import Proksch2015
+from snowmicropyn.loewe2012 import calc
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
 from pathlib import Path
@@ -11,7 +13,7 @@ from scipy.interpolate import interp1d
 def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s.stem)]
 
-DATE = "2026-02-25"
+DATE = "2026-02-26"
 if "-25" in DATE:
     SITE = "Valley"
     depth = [78.5, 68.5, 56, 43.5, 26.5, 10]
@@ -34,7 +36,11 @@ lamb=0 # not needed, needs to provided anyway
 f0=0 # not needed, needs to provided anyway
 delta=0 # not needed, needs to provided anyway
 
-WINDOW_SIZE = 5 # in mm
+# parameters for density and ssa computation
+WINDOW_SIZE = 1 # in mm
+OVERLAP = 50 # in percent
+
+BIN_SIZE = 5 # in mm, for statistics
 
 if "-25" in DATE:
     PIT_HEIGHT = 820 # in mm
@@ -51,27 +57,24 @@ for n, file in enumerate(files):
 
     p = snowmicropyn.Profile.load(file)
 
-    # extract the measured properties
+
+    # Extract and cut measured properties, set distance to zero at surface
     distance = p.samples.distance
     force = p.samples.force
-
-    # find the surface, set the marker
     surface = p.detect_surface()
-    # did not bottom out, use the lowest
     bottom = distance.iloc[-1]
-    
-    # cut the force
     snowpit_mask = distance.between(surface, bottom)
+    df = (
+        p.samples.loc[snowpit_mask, ['distance', 'force']]
+        .assign(distance=lambda d: d['distance'] - d['distance'].iloc[0])
+        .reset_index(drop=True)
+    )
 
-    distance = distance[snowpit_mask]
-    force = force[snowpit_mask]
-
-    # set distance to zero at surface of snowpit
-    distance -= distance.iloc[0]
-
-    
-    # calculate length between ruptures
-    LL = distance.diff()
+    # calculate length between ruptures, same as Calonne et al 2020
+    result = calc(df, WINDOW_SIZE, OVERLAP)
+    distance = result['distance']
+    force = result['force_median']
+    LL = result['L2012_L']
 
     # calculate density and SSA
     # in kg/m³
@@ -80,9 +83,9 @@ for n, file in enumerate(files):
     # in m²/kg
     ssa = param.ssa(density=density, F_m=force, LL=LL, lamb=lamb, f0=f0, delta=delta)
 
-    # Bin the data 
-    bin_edges = np.arange(0, distance.max() + WINDOW_SIZE, WINDOW_SIZE)
-    bin_centers = bin_edges[:-1] + WINDOW_SIZE / 2
+
+    bin_edges = np.arange(0, distance.max() + BIN_SIZE, BIN_SIZE)
+    bin_centers = bin_edges[:-1] + BIN_SIZE / 2
     force_binned = []
     density_binned = []
     ssa_binned = []
@@ -103,12 +106,6 @@ for n, file in enumerate(files):
     ssa_binned = np.array(ssa_binned)
 
     binned_distance = bin_centers
-
-    LL = np.full_like(force_binned, WINDOW_SIZE)
-
-
-    print(f"NaN/neg density: {np.any(np.isnan(density)) or np.any(density < 0)}, NaN/neg force: {np.any(np.isnan(force_binned)) or np.any(force_binned < 0)}")
-
 
     # rescale to match other recordings
     binned_height = binned_distance - binned_distance.max()
@@ -191,7 +188,7 @@ else:
 plt.legend()
 plt.title(f"SMP Mean Density Profile ({SITE})")
 plt.savefig(f"smp_density_{SITE}.png")
-plt.show()
+#plt.show()
 
 
 
@@ -215,4 +212,4 @@ else:
 plt.legend()
 plt.title(f"SMP Mean SSA Profile ({SITE})")
 plt.savefig(f"smp_ssa_{SITE}.png")
-plt.show()
+#plt.show()

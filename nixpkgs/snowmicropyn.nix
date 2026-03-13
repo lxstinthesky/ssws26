@@ -24,7 +24,7 @@ buildPythonPackage rec {
   };
 
   nativeBuildInputs = [
-    libsForQt5.qt5.qttools
+    #libsForQt5.qt5.qttools
     libsForQt5.qt5.wrapQtAppsHook
   ];
 
@@ -35,7 +35,7 @@ buildPythonPackage rec {
     pandas
     pyqt5
     scikit-learn
-    libsForQt5.qt5.qtbase
+    #libsForQt5.qt5.qtbase
   ];
 
   nativeCheckInputs = [
@@ -56,16 +56,16 @@ buildPythonPackage rec {
 
   # Wrapper script for launching the GUI with correct Qt env
   postInstall = ''
-    mkdir -p $out/bin
-    cat > $out/bin/pyngui <<EOF
-    #!/usr/bin/env bash
-    exec python3 -m snowmicropyn.pyngui.app "$@"
-    EOF
-    chmod +x $out/bin/pyngui
+   mkdir -p $out/bin
+   cat > $out/bin/pyngui <<EOF
+   #!/usr/bin/env bash
+   exec python3 -m snowmicropyn.pyngui.app "$@"
+   EOF
+   chmod +x $out/bin/pyngui
   '';
 
   preFixup = ''
-    wrapQtApp "$out/bin/pyngui" --prefix PATH : /path/to/bin
+    wrapQtApp "$out/bin/pyngui"
   '';
 
   # Enable parallel building
