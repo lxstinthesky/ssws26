@@ -118,7 +118,7 @@ for n, file in enumerate(files):
     binned_height = np.flip(binned_height)
 
     # convert to 1/mm
-    ssa_binned /= 0.916
+    #ssa_binned *= 0.916
 
     all_density.append((density_binned, binned_height))
     all_ssa.append((ssa_binned, binned_height))
@@ -200,7 +200,7 @@ plt.cla()
 plt.fill_betweenx(height_grid, low_ssa_95, high_ssa_95, color='lightgray', alpha=0.5, label='95% Percentile')
 plt.fill_betweenx(height_grid, low_ssa_67, high_ssa_67, color='lightgray', alpha=0.9, label='67% Percentile')
 plt.plot(mean_ssa, height_grid, 'C2-', label='Mean SSA')
-plt.xlabel('SSA [1/mm]')
+plt.xlabel('SSA [m²/kg]')
 plt.ylabel('Depth [cm]')
 plt.hlines(y=[PIT_HEIGHT / 10], xmin=low_ssa_95.min(), xmax=high_ssa_95.max(), label="Snowpit surface", color="C1")
 
