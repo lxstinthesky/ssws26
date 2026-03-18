@@ -14,9 +14,13 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s.stem)]
 
 DATE = "2026-02-26"
+
 if "-25" in DATE:
     SITE = "Valley"
-    depth = [78.5, 68.5, 56, 43.5, 26.5, 10]
+    PIT_HEIGHT = 820 # in mm
+    LAYERS = [74, 62, 49, 33, 20] # in cm
+
+    depth = [78.5, 68.5, 56, 43.5, 26.5, 10] # of density cutter measurements
 
     x2 = [557, 250, 233, 264, 248, 254]
     x2_r = list(reversed(x2))
@@ -24,8 +28,77 @@ if "-25" in DATE:
     x3 = [212, 160, 181, 213, 180, 205]
     x3_r = list(reversed(x3)) 
 
+    x_lim_density = (0, 600) # density limits
+
+    depth_temp = [82, 78.5, 68.5, 56, 43.5, 26.5, 10]
+    temp = [-5.6, -5.3, -1.1, 0, -0.1, -0.1, 0]
+
+    #PLOTTING THE DEPTH at which SSA taken (surface each layer)
+    depth_ssa = [82, 79, 74, 62, 49, 33, 20]
+    depth_r = list(reversed(depth_ssa))
+
+    #ADDING THE SSA VALUES FROM DIFFERENT INSTRUMENTS 
+    #Infrasnow
+    xI = [5.1, 8.6, 26.2, 31.8, 25.4, 24.7, 13.5]
+    xI_r = list(reversed(xI))
+
+    xI1 = [5.3, 11.5, 22.3, 39.8, 27.4, 26.2, 18.3]
+    xI1_r = list(reversed(xI1))
+
+
+    depth_miss = [82, 79, 74, 62, 49, 33]
+    depth_r_miss = list(reversed(depth_miss))
+    xI2 = [7.3, 10.6, 29.4, 28.3, 31.4, 22.2]
+    xI2_r = list(reversed(xI2))
+
+    #Icecube
+    ic = [11.5, 9.9, 31, 31.5, 28.2, 13.7, 9.1]
+    ic_r = list(reversed(ic)) 
+
+    ssa_x_lim = (0, 60)
+
 else:
     SITE = "Mountain"
+
+    PIT_HEIGHT = 1750 # in mm
+    LAYERS = [125, 91, 78, 59, 14] # in cm
+
+    depth = [148.5, 108, 84.5, 69.5, 36.5, 7]
+
+    #ADDING THE DENSITY VALUES FROM DIFFERENT INSTRUMENTS 
+    #Density cutter
+    x2 = [262, 230, 305, 332, 275, 309]
+    x2_r = list(reversed(x2))
+
+    #Denoth
+    x3 = [212, 160, 181, 213, 180, 205]
+    x3_r = list(reversed(x3)) 
+
+    x_lim_density = (100, 400)
+    depth_temp = [175, 148.5, 108, 84.5, 69.5, 36.5, 7]
+    temp = [-1.5, -6.6, -4, -3.1, -2.8, -1.7, -0.3]
+
+    depth_ssa = [175, 172, 125, 91, 78, 59, 14]
+    depth_r = list(reversed(depth_ssa))
+
+    midpoints = [148.5, 108, 84.5, 69.5, 36.5, 7]
+
+    #ADDING THE SSA VALUES FROM DIFFERENT INSTRUMENTS 
+    #Infrasnow
+    xI = [6.9, 13.7, 34.7, 23, 17.9, 20.8, 13.4]
+    xI_r = list(reversed(xI))
+
+    xI1 = [23.4, 18.4, 31.1, 24.5, 16, 16.3, 11]
+    xI1_r = list(reversed(xI1))
+
+    xI2 = [11.6, 18.6, 33.6, 25.6, 19.1, 23.3, 11]
+    xI2_r = list(reversed(xI2))
+
+    #Icecube
+    ic = [28.5, 36.3, 33.1, 27.7, 15.2, 12.3, 8.4]
+    ic_r = list(reversed(ic)) 
+
+    ssa_x_lim = (0, 70)
 
 DATA_DIR = Path(f"src/data/{DATE}")
 files = sorted(DATA_DIR.glob('*.PNT'), key=natural_sort_key)
@@ -41,13 +114,6 @@ WINDOW_SIZE = 1 # in mm
 OVERLAP = 50 # in percent
 
 BIN_SIZE = 5 # in mm, for statistics
-
-if "-25" in DATE:
-    PIT_HEIGHT = 820 # in mm
-    LAYERS = [74, 62, 49, 33, 20] # in cm
-else:
-    PIT_HEIGHT = 1750 # in mm
-    LAYERS = [125, 91, 78, 59, 14] # in cm
 
 all_density = []
 all_ssa = []
@@ -118,7 +184,7 @@ for n, file in enumerate(files):
     binned_height = np.flip(binned_height)
 
     # convert to 1/mm
-    #ssa_binned *= 0.916
+    ssa_binned /= 0.916
 
     all_density.append((density_binned, binned_height))
     all_ssa.append((ssa_binned, binned_height))
@@ -168,26 +234,32 @@ high_ssa_67 = np.percentile(interpolated_ssa, 84, axis=0)
 ## DENSITY PLOT 
 #############################################################
 
-plt.figure()
-plt.fill_betweenx(height_grid, low_density_95, high_density_95, color='lightgray', alpha=0.5, label='95% Percentile')
-plt.fill_betweenx(height_grid, low_density_67, high_density_67, color='lightgray', alpha=0.9, label='67% Percentile')
-plt.plot(mean_density, height_grid, 'C0-', label='Mean density')
-plt.xlabel('Density [kg/m³]')
-plt.ylabel('Depth [cm]')
-plt.hlines(y=[PIT_HEIGHT / 10], xmin=low_density_95.min(), xmax=high_density_95.max(), label="Snowpit surface", color="C1")
+fig, ax = plt.subplots(figsize=(10, 6))
+line4 = ax.fill_betweenx(height_grid, low_density_95, high_density_95, color='lightgray', alpha=0.5, label='SMP 95% Percentile')
+line5 = ax.fill_betweenx(height_grid, low_density_67, high_density_67, color='lightgray', alpha=0.9, label='SMP 67% Percentile')
+line6 = ax.plot(mean_density, height_grid, 'C0-', label='SMP Mean density')
+ax.set_xlabel('Density [kg/m³]')
+ax.set_ylabel('Depth [cm]')
 
-if "-25" in DATE:
-    plt.hlines(y=LAYERS, xmin=low_density_95.min(), xmax=high_density_95.max(), label="Top of each layer", color="C1", ls="dotted")
-    plt.scatter(x2, depth, label="Density cutter", color="turquoise", marker="o")
-    plt.scatter(x3, depth, label="Denoth", color="magenta", marker=".")
+ax2 = ax.twiny() # Create the second X-axis
+line3, = ax2.plot(temp, depth_temp, color='red', label='Temperature', marker="x", linewidth=1.5, alpha=0.8)
+ax2.set_xlabel('Temperature (°C)', color='black')
+ax2.tick_params(axis='x', colors='black')
 
-else:
-    plt.hlines(y=LAYERS, xmin=low_density_95.min(), xmax=high_density_95.max(), label="Top of each layer", color="C1", ls="dotted")
+line7 = ax.hlines(y=[PIT_HEIGHT / 10], xmin=x_lim_density[0], xmax=x_lim_density[1], label="Snowpit surface", color="C1")
+line8 = ax.hlines(y=LAYERS, xmin=x_lim_density[0], xmax=x_lim_density[1], label="Top of each layer", color="C1", ls="dotted")
+line1 = ax.scatter(x2, depth, label="Density cutter", color="turquoise", marker="o")
+line2 = ax.scatter(x3, depth, label="Denoth", color="magenta", marker=".")
+ax.set_xlim(*x_lim_density)
 
 
-plt.legend()
-plt.title(f"SMP Mean Density Profile ({SITE})")
-plt.savefig(f"smp_density_{SITE}.png")
+lines = [line1, line2, line3, line4, line5, line6[0], line7, line8]
+
+labels = [l.get_label() for l in lines]
+ax.legend(lines, labels, loc='lower left', fontsize='small')
+
+ax.set_title(f"Density Profile ({SITE} Site)")
+fig.savefig(f"smp_density_{SITE}.png")
 #plt.show()
 
 
@@ -197,19 +269,40 @@ plt.cla()
 ## SSA PLOT 
 #############################################################
 
-plt.fill_betweenx(height_grid, low_ssa_95, high_ssa_95, color='lightgray', alpha=0.5, label='95% Percentile')
-plt.fill_betweenx(height_grid, low_ssa_67, high_ssa_67, color='lightgray', alpha=0.9, label='67% Percentile')
-plt.plot(mean_ssa, height_grid, 'C2-', label='Mean SSA')
-plt.xlabel('SSA [m²/kg]')
-plt.ylabel('Depth [cm]')
-plt.hlines(y=[PIT_HEIGHT / 10], xmin=low_ssa_95.min(), xmax=high_ssa_95.max(), label="Snowpit surface", color="C1")
+lines = []
 
-if "-25" in DATE:
-    plt.hlines(y=LAYERS, xmin=low_ssa_95.min(), xmax=high_ssa_95.max(), label="Top of each layer", color="C1", ls="dotted")
+fig, ax = plt.subplots()
+
+#CREATING SCATTER PLOTS 
+
+line5 = ax.fill_betweenx(height_grid, low_ssa_95, high_ssa_95, color='lightgray', alpha=0.5, label='SMP 95% Percentile')
+line6 = ax.fill_betweenx(height_grid, low_ssa_67, high_ssa_67, color='lightgray', alpha=0.9, label='SMP 67% Percentile')
+line7 = ax.plot(mean_ssa, height_grid, 'C2-', label='SMP Mean SSA')
+
+line8 = ax.hlines(y=[PIT_HEIGHT / 10], xmin=ssa_x_lim[0], xmax=ssa_x_lim[1], label="Snowpit surface", color="C1")
+
+line9 = ax.hlines(y=LAYERS, xmin=ssa_x_lim[0], xmax=ssa_x_lim[1], label="Top of each layer", color="C1", ls="dotted")
+
+line1= ax.scatter(xI_r, depth_r, color='turquoise', label='Infrasnow 1', marker='P')
+line2= ax.scatter(xI1_r, depth_r, color='red', label='Infrasnow 2', marker='P')
+
+if "-25" in DATE: # we missed one measurement there ...
+    line3= ax.scatter(xI2_r, depth_r_miss, color='green', label='Infrasnow 3', marker='P')
+
 else:
-    plt.hlines(y=LAYERS, xmin=low_ssa_95.min(), xmax=high_ssa_95.max(), label="Top of each layer", color="C1", ls="dotted")
+    line3= ax.scatter(xI2_r, depth_r, color='green', label='Infrasnow 3', marker='P')
+line4= ax.scatter(ic_r, depth_r, color='darkviolet', label='Icecube', marker='o')
 
-plt.legend()
-plt.title(f"SMP Mean SSA Profile ({SITE})")
-plt.savefig(f"smp_ssa_{SITE}.png")
+ax.set_xlabel('SSA [1/mm]')
+ax.set_xlim(*ssa_x_lim)
+ax.set_ylabel('Depth [cm]')
+
+
+lines = [line1, line2, line3, line4, line5, line6, line7[0], line8, line9]
+
+labels = [l.get_label() for l in lines]
+ax.legend(lines, labels, loc='lower right', fontsize='small')
+
+ax.set_title(f"SSA Profile ({SITE} Site)")
+fig.savefig(f"smp_ssa_{SITE}.png")
 #plt.show()
